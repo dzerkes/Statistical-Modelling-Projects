@@ -1,0 +1,251 @@
+---
+title: "Logistic"
+author: "Δημήτρης Ζερκελίδης ~ 03400049"
+date: Στατιστική Μοντελοποίηση
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## 2ο ερώτημα ~ leukaemia.txt
+
+Η εκφώνηση μας δίνει ότι ισχύει n=1 πράγμα που σημαίνει ότι έχουμε δυαδικά δεδομένα αντί διωνυμικών. Η εξαρτημένη μεταβλητή μας είναι η response ενώ οι συμμεταβλητές smear,infiltrate,index,blasts,temperature.
+
+Παρακάτω δημιουργούμε ένα μοντέλο λογιστικής παλινδρόμησης πάνω στις μεταβλητές και τα δεδομένα που μας δίνονται.
+
+
+```{r}
+#diavasma dedomenwn
+mydata = read.table("/home/zerkes/Desktop/DSML - MASTER/1st semester/STATISTICAL MODELLING/project3/final/leukaemia.txt", header=TRUE)
+attach(mydata)
+# logistic regression model
+logmod1 <- glm(response ~ age + smear + infiltrate + index + blasts + temperature, family=binomial,data=mydata)
+
+summary(logmod1)
+```
+
+Παρατηρούμε από τα παραπάνω wald test ότι οι μεταβλητές smear , infiltrate και blasts έχουν υψηλό p-value που σημαίνει ότι δεν είναι στατιστικά σημαντικές και δε βοηθάνε  στην επεξήγηση της ανταπόκρισης της θεραπείας(y).
+
+```{r}
+library(MASS)
+library(car)
+cor(mydata)
+```
+Το correlation matrix μας κάνει εμφανές το ότι υπάρχει συσχέτιση μεταξύ μεταβλητών. Για παράδειγμα η μεταβλητή smear με τη μεταβλητή infiltrate συσχετίζονται σε πολύ μεγάλο βαθμό για αυτό και έχουμε συσχέτιση της τάξεως 0.8+. Αυτό είναι λογικό, αφού το ποσοστό κυττάρων στο μυελό των οστών, επηρεάζει όπως φαίνεται το ποσοστό επίστρωσης βλαστοκυττάρων.
+
+Να αναφέρουμε ότι σε περίπτωση όπου έχουμε binary data (ni=1) η Deviance δε μας παρέχει πληροφορίες για την προσαρμογή του μοντέλου καθώς εξαρτάται μόνο από τις εκτιμώμενες τιμές μi. Παρόλα αυτά μπορούμε να χρησιμοποιήσουμε τη Deviance για σύγκριση 2 μοντέλων και να ερευνήσουμε τη μεταβολήτ της, η οποία ακολουθεί την κατανομή chi square.
+
+*BACKWARD STEPWISE SELECTION WITH AIC CRITERION*
+
+```{r}
+backw = step(logmod1, direction="backward",test="Chisq")
+summary(backw)
+```
+
+Το μοντέλο που πήραμε από την παραπάνω διαδικασία περιέχει τις μεταβλητές index, temperature, age , infiltrate. Όπως φαίνεται οι μεταβλητές smear και blasts βγήκαν καθώς από ότι φαίνεται είχαν συσχέτιση με την infiltrate, επομένως δε μας δίναν κάποια παραπάνω πληροφορία. Eπιπλέον από το summary βλέπουμε πως οι μεταβλητές μας είναι στατιστικά σημαντικές εκτός της infiltrate. Όμως η αφαίρεση της θα επέφερε αύξηση στο συντελεστή του AIC.
+
+Έπίσης μπορούμε να δούμε τον έλεγχο deviance για το αρχικό μοντέλο με όλες τις μεταβλητές που μας δίνει η άσκηση και αυτό του backward selection.
+
+```{r}
+anova(backw,logmod1,test="Chisq")
+```
+
+Από το παραπάνω τεστ βλέπουμε πως το backward μοντέλο είναι όμοιο με το μοντέλο που δημιουργήσαμε στην αρχή και ότι δεν προκείπτουν μεγάλες διαφορές. Επομένως θα κρατήσουμε το μοντέλο με τις λιγότερες μεταβλητές,γιατί έχει καλύτερο AIC κάτι το οποίο δείχνει πως το μοντέλο και είναι πιο απλό και πιο αποδοτικό. Ενώ, βλέπουμε πως έχουμε λιγότερο αριθμό μη στατιστικά σημαντικών μεταβλητών στο καινούριο μας μοντέλο.
+
+
+*AV PLOTS*
+
+Tα av plots μας δελιχνουν πως όλες οι μεταβλητές έχουν στοιχεία κοντά στη γραμμή με εξαίρεση προφανώς κάποια outliers. Επομένως, και οι 4 μεταβλητές βοηθούν στην επεξήγηση της y.
+
+```{r}
+library(car)
+par (mfrow=c(2,2))
+avPlot(backw, variable=infiltrate, pch=19)
+avPlot(backw, variable=age, pch=19)
+avPlot(backw, variable=temperature, pch=19)
+avPlot(backw, variable=index, pch=19)
+```
+
+
+*CR PLOTS*
+
+Από τα cr plots βλέπουμε πως όλες οι  μεταβλητές  παρουσιάζουν μια ευθύγραμμη τάση. Θα δοκιμάσουμε όμως να μετασχηματίσουμε την index και να δούμε αν θα έχουμε καλύτερα αποτελέσματα.
+
+```{r}
+library(car)
+par (mfrow=c(2,2))
+crPlot(backw, variable=age, pch=19)
+crPlot(backw, variable=infiltrate, pch=19)
+crPlot(backw, variable=temperature, pch=19)
+crPlot(backw, variable=index, pch=19)
+```
+
+*ΒΕΛΤΙΣΤΟ ΜΟΝΤΕΛΟ* 
+
+Λογαρίθμηση παραμέτρου index.
+
+```{r}
+fit <- glm(response ~ age  + log(index)  + temperature + infiltrate , family=binomial, data=mydata)
+summary(fit )
+```
+Το παραπάνω summary μας δείνχει πως οι ς μεταβλητές είναι στατιστικά σημαντικές, εκτός της infiltrate. Όμως βλέπουμε πως έχει μειωθεί σε σχέση με πριν το AIC.
+
+Παρακάτω θα δούμε τα Component residual plots για τη μετασχηματισμένη μεταβλητή , ωστέ να δούμε πως βελτιώθηκε η γραμμική της τάση.
+
+```{r}
+par (mfrow=c(1,2))
+crPlot(backw, variable=index, pch=19)
+crPlot(fit, variable=log(index), pch=19)
+```
+
+Eίναι εμφανές πως ο συγκεκριμένος μετασχηματισμός μας δίνει καλύτερα αποτελέσματα.
+
+*ΑΦΑΙΡΕΣΗ ΙΝFILTRATE *
+Αν δοκιμάσουμε να βγάλουμε τη μεταβλητή infiltrate θα παρατηρήσουμε πως ναι μεν όλες οι μεταβλητές του μοντέλου μας θα είναι στατιστικά σημαντικές αλλά θα αυξηθεί το AIC και θα μειωθεί η προσαρμοστικότητα στο μοντέλο.
+
+Παρακάτω βλέπουμε και από τη σύγκριση μεταξύ των 2 μοντέλων πως η πρόσθεση της μεταβλητής infiltrate μείωνει τη deviance κατά 3,986 σε σχέση με το μοντέλο χωρίς αυτήν. H p-value τιμή είναι μικρότερη του 0.05 επομένως μπορούμε να απορρίψουμε το εμφωλευμένο μοντέλο.
+
+```{r}
+fit_new <- glm(response ~ age  + log(index)  + temperature , family=binomial, data=mydata)
+summary(fit_new)
+
+anova(fit_new,fit,test="Chisq")
+```
+
+Οπότε, επιλέγουμε το μοντέλο με τις 4 μεταβλητές.
+
+Η εξίσωση για τη μεταβλητή response σύμφωνα με το βέλτιστο μοντέλο γράφεται ως εξής:
+   $p = \frac{e^{88,58023  -0,06267 *age + 4,27521*log(index) + 0,03938 *infiltrate -0,09809*temperature}}{e^{88,58023  -0,06267 *age + 4,27521*log(index) + 0,03938 *infiltrate -0,09809*temperature}}$
+        
+ ή 
+        
+  $log(odds) = log(\frac{\hat{p}}{1-\hat{p}})= 88.58023 -0.06267*age + 4,27521*log(index) + 0,03938 *infiltrate -0,09809*temperature $
+        
+        
+
+**ΔΙΑΣΤΗΜΑΤΑ ΕΜΠΙΣΤΟΣΥΝΗΣ ΓΙΑ ΤΑ** $\hat{β}$ 
+
+```{r}
+# confidence interval of model
+confint(fit)
+
+#confidence interval for odds model p/1-p
+exp(confint(fit))
+```
+Παραπάνω φαίνονται τα διαστήματα εμπιστοσύνης της τάξεως του 95% , για τις παραμέτρους του μοντέλου αλλά και για τα αντίστοιχα διαστήματα των $e^{B_j}$
+
+**ΕΡΜΗΝΕΙΑ ΣΥΝΤΕΛΕΣΤΩΝ**
+
+O τρόπος που ερμηνεύουμε τους συγκεκριμένους συντελεστές του μοντέλου είναι ο εξής. Η ποσότητα $e^{B_j}$ είναι ο παράγοντας που πολλαπλασιάζεται η σχετική πιθανότητα (οdds) πραγματοποίησης του γεγονότος, όταν η ανεξάρτητη μεταβλητή $Χ_j$ αυξάνεται κατά μια μονάδα, δεδομένου ότι οι υπόλοιπες μεταβλητές παραμένουν σταθερές.
+
+Αν το ${B_j}$ > 0 τότε το $e^{B_j}$ > 1 που σημαίνει πως ο λόγος odds αυξάνεται, ενώ αντίθετα εάν ${B_j}$ < 0 τότε το $e^{B_j}$ < 1 που σημαίνει πως ο λόγος odds μειώνεται.
+
+Στη δική μας περίπτωση για τη μεταβλητή *age* έχουμε αρνητικό συντελεστή επομένως αν η age αυξηθεί κατά μια μονάδα τότε η σχετική  ανταπόκριση στη θεραπεία πολλαπλασιάζεται με το 0.93925337616<1. Επομένως όσο ανεβαίνει η ηλικία , η πιθανότητα για απόδοση της θεραπείας μειώνεται.
+
+Για τη μεταβλητή *temperature* η οποία και αυτή έχει αρνητικό συντελεστή, έχουμε πως αύξηση της υψηλότερης θερμοκρασίας σημαίνει πως η πιθανότητα για απόδοση της θεραπείας πολλαπλασιάζεται με 0.90656730902 <1
+
+Για τη μεταβλητή *log(index)* που δείχνει των δείκτη των κυττάρων λευχαιμίας έχουμε πως αν αυξηθεί κατά μια μονάδα , η πιθανότητα για απόδοση στη θεραπεία βελτιώνεται καθώς πολλαπλασιάζεται με όρο μεγαλύτερο του 1 , συγκεκριμένα τον 71.895235724.
+
+Για τη μεταβλητή *infiltrate* η οποία έχει θετικό συντελεστή έχουμε πως η αύξηση κατά μιας μονάδας της τιμής αυτής θα πολλαπλασιάσει την πιθανότητα ανταπόκρισης στη θεραπεία με το συντελεστή 1.04016567151 > 1.
+
+Τέλος για το *intercept coefficient* δεν μπορούμε να δώσουμε κάποια ερμηνεία καθώς ποτέ οι συμμεταβλητές δε θα γίνουν όλες μαζί 0.
+
+
+**ΔΙΑΓΝΩΣΤΙΚΟΙ ΕΛΕΓΧΟΙ -ΠΡΟΣΑΡΜΟΓΗ- ΣΗΜΕΙΑ ΕΠΙΡΡΟΗΣ**
+
+
+```{r,echo=FALSE}
+#ypologismos residuals gia na ta kanoyme plot sti sinexeia
+res.pearson <- residuals(fit, type = "pearson",data=mydata)
+stand.pearson.residuals <- res.pearson/(sqrt(1-hatvalues(fit)))
+
+res.deviance <- residuals(fit, type = "deviance",data=mydata)
+stand.res.deviance <- rstandard(fit)
+
+res.lik <- sign(response-fitted.values(fit))*sqrt(hatvalues(fit)
+*stand.pearson.residuals^2 + (1-hatvalues(fit))*stand.res.deviance^2)
+```
+*RESIDUALS QQ PLOT*
+
+Έχοντας υπολογίσει τα residuals που μας ενδιαφέρουν πάμε να δούμε κάποια διαγράμματα που θα μας δείξουν αν τα σφάλματα ακολουθούν την κανονική κατανομή. Βάση του αν την ακολουθούν ή όχι μπορούμε να καταλάβουμε πόσο καλά έχει προσαρμοστεί το μοντέλο μας. Αν έχουμε σημεία που ξεφεύγουν της ευθείας ίσως υπάρχουν πιθανά outliers.
+
+```{r}
+qqnorm(stand.pearson.residuals)
+qqline(stand.pearson.residuals)
+```
+Όπως φαίνεται σε κάποια σημεία έχουμε παραβίαση της κανονικότητας γεγονός που υποδεικνύει την ύπαρξη outliers.
+
+*PLOTS WITH LINEAR PREDICTOR AND EACH COVARIATE*
+
+Tο τελευταίο γράφημα με το linear predictor να σημειωθεί οτί ενώ φαίνεται να παρουσιάζει μια τάση δεν μπορούμε να το χρησιμοποιήσουμε σε περίπτωση δυαδικών δεδομένων καθώς δε μας δείνει κάποια πληροφορία.
+
+
+```{r}
+library(car)
+residualPlots(fit)
+```
+*INDEX PLOT*
+
+Από το διάγραμμα τυποποιημένων deviance υπολοίπων με βάση το id , παρατηρούμε πως τα υπόλοιπα κατανέμονται τυχαία γύρω από το 0, επομένως οι παρατηρήσεις μας είναι ανεξάρτητες μεταξύ τους, αφού δεν παρουσιάζουν κάποια ιδιαίτερη συμπεριφορά.
+
+```{r}
+
+par(mfrow = c(2, 2))
+id = c(1:51)
+plot(id,res.deviance/sqrt((1-hatvalues(fit))),ylab="St.Res.Deviance")
+abline(h=0)
+
+
+plot(id,res.deviance/sqrt((1-hatvalues(fit))))
+abline(h=0)
+
+plot(id, res.lik, ylab = "St. Res. likelihood")
+abline(h=0)
+
+plot(id, stand.pearson.residuals, ylab = "St.Res.Pearson")
+abline(h=0)
+
+```
+
+*ΣΗΜΕΙΑ ΕΠΙΡΡΟΗΣ*
+
+Σύμφωνα με το διάγραμμα για το Cook's Distance δεν έχουμε κάποιο σημείο επιρροής , καθώς όλες οι τιμές είναι μικρότερες του 1. Το διάγραμμα με τα hatvalues - id παρουσιάζει κάποια σημεία επιρροής καθώς υπάρχουν αρκετές παρατηρήσεις με τιμή 2p/n = 2*5/51 = 0.19607843137
+
+```{r}
+
+par(mfrow = c(1, 2))
+
+plot(id,cooks.distance(fit)) # simeia epirrois an i timi tous einai  > 1
+
+plot(id,hatvalues(fit)) # 2p/n = 2*3/51 =6/51= 0.11764705882
+```
+Παρακάτω βλέπουμε τα σημεία επιρροής από το διάγραμμα με τα hatvalues vs id.
+
+```{r}
+hatvalues(fit)[hatvalues(fit)>0.19607843137]
+```
+
+
+**ROC CURVE**
+
+Ορισμός ROC CURVE:
+
+sensitivity = a/(a + c), rate of correct prediction of Y = 1 (true positive rate)
+
+specificity = d/(b + d), rate of correct prediction of Y = 0 (true negative rate)
+
+1-specificity είναι το ίδιο με το false positive rate.
+
+Plot sensitivity VS 1-specificity για κάθε p0 από 0 εώς 1.
+
+Μεγάλη επιτυχία στο prediction σημαίνει πως υπάρχει μια τιμή p0(threshold) όπου έχουμε υψηλό sensitivity και specificity ταυτόχρονα.
+Τότε η καμπύλη ROC  είναι κοντά στην πάνω αριστερή γωνία του διαγράμματος. Η περιοχή κάτω από την καμπύλη (ΑUC) δείχνει πόσο κοντά είμαστε σε αυτή τη γωνία. Η μεγιστή τιμή που μπορεί να λάβει είναι η 1 (εφόσον έχουμε 1χ1 διαστάσεις).
+
+```{r}
+par(mfrow = c(1, 1))
+library(pROC)
+roc(response, fitted.values(fit), smooth=TRUE, plot=TRUE)
+```
+
+
